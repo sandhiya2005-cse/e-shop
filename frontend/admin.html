@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Shop | Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-50 relative min-h-screen pb-20">
+    <nav class="glass sticky top-0 z-50 px-6 py-4 mb-8">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">E-Shop Admin</a>
+            <div id="auth-links" class="flex items-center gap-4">
+                <!-- Injected via auth.js -->
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6">
+        <div class="mb-12 text-center">
+            <h1 class="text-4xl font-extrabold text-slate-800 mb-4">Real-Time Product Manager</h1>
+            <p class="text-slate-500 max-w-2xl mx-auto text-lg">Add and manage real products dynamically. Changes instantly reflect across the entire store.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Add Product Form -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 sticky top-24">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6">Add Real Product</h2>
+                    <form id="add-product-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
+                            <input type="text" id="name" required placeholder="Sony Noise Cancelling Headphones..." class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Price (₹)</label>
+                            <input type="number" step="0.01" id="price" required placeholder="14999.00" class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Image URL</label>
+                            <input type="url" id="image_url" placeholder="https://..." class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                            <textarea id="description" rows="3" placeholder="Industry leading noise cancellation..." class="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition shadow-md shadow-blue-500/20">Push to Live Store 🚀</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Product List -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6">Your Live Catalog</h2>
+                    <div id="loader" class="flex justify-center py-10 hidden">
+                        <div class="loader w-10 h-10 border-4 border-slate-200 rounded-full"></div>
+                    </div>
+                    <div id="admin-products-list" class="space-y-4">
+                        <!-- Products injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="fixed bottom-5 right-5 px-6 py-3 rounded-xl text-white font-medium shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Redirect if not logged in
+        if (!localStorage.getItem('token')) {
+            window.location.href = 'auth.html';
+        }
+
+        const loadAdminProducts = async () => {
+            const list = document.getElementById('admin-products-list');
+            const loader = document.getElementById('loader');
+            list.innerHTML = '';
+            loader.classList.remove('hidden');
+
+            try {
+                const products = await API.get('/products');
+                loader.classList.add('hidden');
+                
+                if(products.length === 0) {
+                    list.innerHTML = '<div class="text-center text-slate-500 py-12 bg-slate-50 border border-dashed border-slate-200 rounded-xl">Your live catalog is empty.<br><span class="text-sm mt-2 block">Use the sidebar to add your first real product!</span></div>';
+                    return;
+                }
+
+                list.innerHTML = products.map(p => `
+                    <div class="flex items-center gap-4 p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition">
+                        <img src="${getProductImage(p.image_url, p.id)}" class="w-16 h-16 object-cover rounded-lg bg-slate-200">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800">${p.name}</h3>
+                            <p class="text-slate-500 text-sm">₹${p.price.toLocaleString('en-IN')}</p>
+                        </div>
+                        <button onclick="deleteProduct(${p.id})" class="text-red-500 hover:text-white border border-red-500 hover:bg-red-500 px-4 py-2 rounded-lg transition font-medium text-sm">Delete</button>
+                    </div>
+                `).join('');
+            } catch (err) {
+                loader.classList.add('hidden');
+                showToast('Failed to load live catalog', 'error');
+            }
+        };
+
+        window.deleteProduct = async (id) => {
+            if(!confirm("Are you sure you want to delete this product from the live store?")) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+                    method: 'DELETE',
+                    headers: API.getHeaders(true)
+                });
+                if(!res.ok) throw new Error("Failed");
+                showToast('Product successfully removed from database');
+                loadAdminProducts();
+            } catch(e) {
+                showToast('Failed to delete product. Only admins may delete.', 'error');
+            }
+        };
+
+        document.getElementById('add-product-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.textContent;
+            btn.textContent = 'Pushing to Real-Time Database...';
+            btn.disabled = true;
+
+            const newProduct = {
+                name: document.getElementById('name').value,
+                price: parseFloat(document.getElementById('price').value),
+                image_url: document.getElementById('image_url').value || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400",
+                description: document.getElementById('description').value || ""
+            };
+
+            try {
+                await API.post('/products', newProduct, true);
+                showToast('Product dynamically injected into live catalog!');
+                e.target.reset();
+                loadAdminProducts();
+            } catch (err) {
+                showToast(err.detail || 'Access Denied: Could not create product', 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', loadAdminProducts);
+    </script>
+</body>
+</html>

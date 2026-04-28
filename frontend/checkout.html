@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | E-Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-50 relative min-h-screen pb-20">
+    <nav class="glass sticky top-0 z-50 px-6 py-4 mb-8">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">E-Shop</a>
+            <div id="auth-links" class="flex items-center gap-4"></div>
+        </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto px-6 pt-8">
+        <div class="bg-white rounded-3xl p-8 lg:p-12 shadow-sm border border-slate-100 text-center">
+            <h1 class="text-3xl font-bold text-slate-800 mb-4">Complete Your Order</h1>
+            <p class="text-slate-500 mb-8 max-w-lg mx-auto">Review your total and click place order to simulate processing.</p>
+            
+            <div class="bg-slate-50 p-6 rounded-2xl mb-8 max-w-sm mx-auto">
+                <p class="text-slate-500 mb-2 font-medium">Order Total</p>
+                <p id="total-amount" class="text-5xl font-extrabold text-blue-600">₹0.00</p>
+            </div>
+
+            <button id="place-order-btn" class="w-full max-w-sm mx-auto bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg shadow-green-500/30 transition transform hover:-translate-y-1 block">
+                Place Order Now
+            </button>
+            
+            <div id="status-msg" class="mt-6 text-lg font-medium hidden text-green-600"></div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+             if (!localStorage.getItem('token')) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            const total = getCartTotal();
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            
+            if (cart.length === 0) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('total-amount').textContent = `₹${total.toLocaleString('en-IN')}`;
+
+            document.getElementById('place-order-btn').addEventListener('click', async () => {
+                const btn = document.getElementById('place-order-btn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loader inline-block w-5 h-5 border-2 border-white rounded-full items-center"></span> Processing...';
+                
+                try {
+                    const items = cart.map(item => ({
+                        product_id: item.id,
+                        quantity: item.quantity
+                    }));
+
+                    const res = await API.post('/orders', { items }, true);
+                    
+                    document.getElementById('status-msg').classList.remove('hidden');
+                    document.getElementById('status-msg').textContent = `Success! Order #${res.id} has been placed.`;
+                    
+                    // Clear cart
+                    localStorage.removeItem('cart');
+                    updateCartCount();
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 3000);
+
+                } catch (err) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Try Again';
+                    showToast(err.detail || 'Failed to place order', 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
